@@ -176,13 +176,6 @@ const VIEWS = [
   { key: "Points_Rank_4", label: "4th Place",              title: "4th Place Team Points" },
 ];
 
-// Categorical color palette (distinct, color-blind friendlier ordering)
-const PALETTE = [
-  "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
-  "#42d4f4", "#f032e6", "#bfef45", "#fabed4", "#469990",
-  "#9a6324", "#800000", "#808000", "#000075", "#a9a9a9"
-];
-
 const W = 960, H = 600;
 const svg = document.getElementById("chart");
 const tooltip = document.getElementById("tooltip");
@@ -281,15 +274,36 @@ function useDarkText(hex) {
 }
 
 // ---- Color mapping ----
-// Build ONE global value -> color map across every view so that a given
-// number (e.g. 4) is always the same color, regardless of which view is shown.
+// Convert HSL to a #rrggbb hex string (so useDarkText can read it).
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => {
+    const c = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return Math.round(255 * c).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+// Build ONE global value -> color map across every view so a given number is
+// always the same color. Colors form a uniform rainbow ordered by value:
+// the smallest value is red (hue 0) and the largest is purple (hue 280),
+// evenly spaced around the spectrum in between.
+const HUE_START = 0;   // red
+const HUE_END = 280;   // purple
 let GLOBAL_COLOR_MAP = new Map();
 function buildGlobalColorMap() {
   const allValues = new Set();
   VIEWS.forEach(v => DATA.forEach(d => allValues.add(d[v.key])));
   const sorted = [...allValues].sort((a, b) => a - b);
   GLOBAL_COLOR_MAP = new Map();
-  sorted.forEach((v, i) => GLOBAL_COLOR_MAP.set(v, PALETTE[i % PALETTE.length]));
+  const n = sorted.length;
+  sorted.forEach((v, i) => {
+    const t = n > 1 ? i / (n - 1) : 0;
+    const hue = HUE_START + t * (HUE_END - HUE_START);
+    GLOBAL_COLOR_MAP.set(v, hslToHex(hue, 75, 55));
+  });
 }
 
 // Distinct values present for the active view (for the legend), in sorted order.
